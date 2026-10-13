@@ -1,28 +1,16 @@
 
-import os
-
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
+from config import settings
+
 
 # ============================================
-# 1. 读取数据库配置
+# 1. 检查数据库密码
 # ============================================
 
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-
-DB_NAME = os.getenv("DB_NAME", "papermind")
-
-IS_TESTING = (
-    os.getenv("PAPERMIND_TESTING") == "1"
-)
-
-TEST_DB_NAME = "papermind_pytest_db"
-
-
-if not DB_PASSWORD:
+if not settings.DB_PASSWORD:
     raise RuntimeError(
         "请先设置 DB_PASSWORD 环境变量"
     )
@@ -32,19 +20,27 @@ if not DB_PASSWORD:
 # 2. 数据库环境安全检查
 # ============================================
 
-if IS_TESTING:
+if settings.IS_TESTING:
 
-    if DB_NAME != TEST_DB_NAME:
+    # pytest 只能连接专用测试数据库
+    if settings.DB_NAME != settings.TEST_DB_NAME:
         raise RuntimeError(
             "安全检查失败：pytest 环境只能使用 "
-            f"{TEST_DB_NAME} 数据库"
+            f"{settings.TEST_DB_NAME} 数据库"
+        )
+
+    # pytest 必须使用专用数据库用户
+    if settings.DB_USER != "papermind_tester":
+        raise RuntimeError(
+            "安全检查失败：pytest 必须使用专用数据库用户"
         )
 
 else:
 
-    if DB_NAME == TEST_DB_NAME:
+    # 正常运行禁止误连 pytest 测试库
+    if settings.DB_NAME == settings.TEST_DB_NAME:
         raise RuntimeError(
-            "安全检查失败：正常运行环境不允许 "
+            "安全检查失败：正常运行环境不允许"
             "连接 pytest 测试数据库"
         )
 
@@ -55,14 +51,17 @@ else:
 
 DATABASE_URL = URL.create(
     drivername="mysql+pymysql",
-    username=DB_USER,
-    password=DB_PASSWORD,
-    host="127.0.0.1",
-    port=3306,
-    database=DB_NAME,
+
+    username=settings.DB_USER,
+    password=settings.DB_PASSWORD,
+
+    host=settings.DB_HOST,
+    port=settings.DB_PORT,
+    database=settings.DB_NAME,
+
     query={
         "charset": "utf8mb4"
-    },
+    }
 )
 
 
@@ -72,18 +71,18 @@ DATABASE_URL = URL.create(
 
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,
+    pool_pre_ping=True
 )
 
 
 # ============================================
-# 5. 创建数据库会话工厂
+# 5. 创建数据库 Session 工厂
 # ============================================
 
 SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,
-    autocommit=False,
+    autocommit=False
 )
 
 

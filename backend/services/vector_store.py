@@ -72,7 +72,9 @@ class VectorStore:
     @classmethod
     def load(cls, index_path, chunks_path):
 
-        index = faiss.read_index(index_path)
+        index = faiss.read_index(
+            str(index_path)
+        )
 
         with open(chunks_path, "r", encoding="utf-8") as f:
 

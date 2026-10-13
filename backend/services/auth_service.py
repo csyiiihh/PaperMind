@@ -1,35 +1,58 @@
-import os
+
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from dotenv import load_dotenv
-
 from pwdlib import PasswordHash
 
+from config import settings
+
+
+# ============================================
+# 1. 密码加密与验证
+# ============================================
+
 password_hasher = PasswordHash.recommended()
+
 
 def hash_password(password: str) -> str:
     return password_hasher.hash(password)
 
-def verify_password(password: str, hashed_password: str) -> bool:
-    return password_hasher.verify(password, hashed_password)
+
+def verify_password(
+    password: str,
+    hashed_password: str
+) -> bool:
+    return password_hasher.verify(
+        password,
+        hashed_password
+    )
 
 
-load_dotenv()
+# ============================================
+# 2. JWT 配置
+# ============================================
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_MINUTES = int(
-    os.getenv("JWT_EXPIRE_MINUTES", "120")
-)
 
-if not JWT_SECRET_KEY:
-    raise RuntimeError("未配置 JWT_SECRET_KEY")
+if not settings.JWT_SECRET_KEY:
+    raise RuntimeError(
+        "未配置 JWT_SECRET_KEY"
+    )
 
+if settings.JWT_EXPIRE_MINUTES <= 0:
+    raise RuntimeError(
+        "JWT_EXPIRE_MINUTES 必须大于 0"
+    )
+
+
+# ============================================
+# 3. 生成 JWT
+# ============================================
 
 def create_access_token(user_id: int) -> str:
+
     expire = datetime.now(timezone.utc) + timedelta(
-        minutes=JWT_EXPIRE_MINUTES
+        minutes=settings.JWT_EXPIRE_MINUTES
     )
 
     payload = {
@@ -39,24 +62,28 @@ def create_access_token(user_id: int) -> str:
 
     return jwt.encode(
         payload,
-        JWT_SECRET_KEY,
+        settings.JWT_SECRET_KEY,
         algorithm=JWT_ALGORITHM
     )
 
 
+# ============================================
+# 4. 解析并验证 JWT
+# ============================================
+
 def decode_access_token(token: str) -> int:
-    """验证 JWT 并返回用户 ID。"""
 
     payload = jwt.decode(
         token,
-        JWT_SECRET_KEY,
+        settings.JWT_SECRET_KEY,
         algorithms=[JWT_ALGORITHM],
-        options={"require": ["sub", "exp"]}
+        options={
+            "require": ["sub", "exp"]
+        }
     )
 
     user_id = payload["sub"]
 
-    # 用户 ID 必须是正整数
     if (
         not isinstance(user_id, str)
         or not user_id.isdigit()

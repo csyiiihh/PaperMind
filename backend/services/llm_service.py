@@ -1,10 +1,7 @@
 
-import os
 import logging
 
-from dotenv import load_dotenv
 from fastapi import HTTPException
-
 from openai import (
     OpenAI,
     APITimeoutError,
@@ -15,47 +12,49 @@ from openai import (
     APIError,
 )
 
+from config import settings
+
+
 
 # ============================================
 # 1. 加载配置
 # ============================================
 
-load_dotenv()
+
+# ============================================
+# DeepSeek 配置与客户端
+# ============================================
 
 logger = logging.getLogger(__name__)
 
-api_key = os.getenv("DEEPSEEK_API_KEY")
+if not settings.DEEPSEEK_API_KEY:
+    raise RuntimeError(
+        "未配置 DEEPSEEK_API_KEY"
+    )
 
-if not api_key:
-    raise RuntimeError("未配置 DEEPSEEK_API_KEY")
+if settings.DEEPSEEK_TIMEOUT <= 0:
+    raise RuntimeError(
+        "DEEPSEEK_TIMEOUT 必须大于 0"
+    )
 
-base_url = os.getenv(
-    "DEEPSEEK_BASE_URL",
-    "https://api.deepseek.com"
-)
+if settings.DEEPSEEK_MAX_RETRIES < 0:
+    raise RuntimeError(
+        "DEEPSEEK_MAX_RETRIES 不能小于 0"
+    )
 
-model_name = os.getenv(
-    "DEEPSEEK_MODEL",
-    "deepseek-flash"
-)
+if settings.DEEPSEEK_MAX_TOKENS <= 0:
+    raise RuntimeError(
+        "DEEPSEEK_MAX_TOKENS 必须大于 0"
+    )
 
-
-# ============================================
-# 2. 创建 DeepSeek 客户端
-# ============================================
+model_name = settings.DEEPSEEK_MODEL
 
 client = OpenAI(
-    api_key=api_key,
-    base_url=base_url,
-
-    # 单次请求最长等待 60 秒
-    timeout=60.0,
-
-    # 暂时关闭 SDK 自动重试
-    # 防止重复调用导致额外费用或等待时间过长
-    max_retries=0
+    api_key=settings.DEEPSEEK_API_KEY,
+    base_url=settings.DEEPSEEK_BASE_URL,
+    timeout=settings.DEEPSEEK_TIMEOUT,
+    max_retries=settings.DEEPSEEK_MAX_RETRIES
 )
-
 
 # ============================================
 # 3. 调用大模型生成回答
@@ -82,7 +81,7 @@ def generate_answer(question: str) -> str:
                 }
             ],
             stream=False,
-            max_tokens=8192
+            max_tokens=settings.DEEPSEEK_MAX_TOKENS
         )
 
     # ========================================

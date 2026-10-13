@@ -4,6 +4,8 @@ from uuid import UUID
 import uuid
 import logging
 
+from config import settings
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -28,7 +30,8 @@ app = FastAPI()
 
 logger = logging.getLogger(__name__)
 
-MAX_PDF_SIZE = 20 * 1024 * 1024  # 20 MB
+MAX_PDF_SIZE = settings.MAX_PDF_SIZE
+
 UPLOAD_CHUNK_SIZE = 1024 * 1024  # 每次读取 1 MB
 
 app.add_middleware(
@@ -43,11 +46,17 @@ app.add_middleware(
 )
 
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR = settings.UPLOAD_DIR
+UPLOAD_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
-VECTOR_STORE_DIR = Path("vector_stores")
-VECTOR_STORE_DIR.mkdir(exist_ok=True)
+VECTOR_STORE_DIR = settings.VECTOR_STORE_DIR
+VECTOR_STORE_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 
 
@@ -202,7 +211,7 @@ async def upload_paper(
                 if total_size > MAX_PDF_SIZE:
                     raise HTTPException(
                         status_code=413,
-                        detail="PDF 文件不能超过 20 MB"
+                        detail=("PDF 文件不能超过 ",f"{MAX_PDF_SIZE / (1024 * 1024):g}MB")
                     )
 
                 output_file.write(chunk)
@@ -540,9 +549,13 @@ def ask_paper(paper_id: UUID, request: AskRequest, current_user: dict = Depends(
     # 1. 构造索引路径
     paper_id_str = str(paper_id)
 
-    index_path = (f"vector_stores/{paper_id_str}.index")
+    index_path = (
+        VECTOR_STORE_DIR / f"{paper_id_str}.index"
+    )
 
-    chunks_path = (f"vector_stores/{paper_id_str}_chunks.json")
+    chunks_path = (
+        VECTOR_STORE_DIR / f"{paper_id_str}_chunks.json"
+    )
 
     # 2. 检查论文索引是否存在
     if not os.path.exists(index_path) or not os.path.exists(chunks_path):
