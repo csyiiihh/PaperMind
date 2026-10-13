@@ -1,0 +1,48 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.coverage
+htmlcov/
+
+# Sensitive environment files
+.env
+.env.*
+!.env.example
+
+# Uploaded papers and vector indexes
+backend/uploads/
+backend/vector_stores/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend
+node_modules/
+dist/
+dist-ssr/
+
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Local Python virtual environment
+backend/list/
+
+# Temporary dependency inventory
+requirements-full.txt
