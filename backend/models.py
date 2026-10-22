@@ -1,7 +1,7 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import String, DateTime
+from sqlalchemy import String, DateTime, Index
 from sqlalchemy import ForeignKey, Text, Float
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,10 +43,11 @@ class Paper(Base):
     )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True
+        nullable=False
     )
 
+
+Index("fk_papers_user", Paper.user_id)
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
