@@ -66,6 +66,95 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt
 
+
+      - name: Create migration database
+        run: |
+          python - <<'PY'
+          import pymysql
+
+          connection = pymysql.connect(
+              host="127.0.0.1",
+              port=3306,
+              user="root",
+              password="ci-root-password",
+              autocommit=True,
+          )
+
+          try:
+              with connection.cursor() as cursor:
+                  cursor.execute(
+                      "CREATE DATABASE papermind_migration_ci "
+                      "CHARACTER SET utf8mb4 "
+                      "COLLATE utf8mb4_unicode_ci"
+                  )
+              print("Migration database created.")
+          finally:
+              connection.close()
+          PY
+
+      - name: Validate Alembic migrations
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_USER: root
+          DB_PASSWORD: ci-root-password
+          DB_NAME: papermind_migration_ci
+          PAPERMIND_TESTING: "0"
+        run: |
+          alembic upgrade head
+          alembic current
+          alembic check
+
+          python - <<'PY'
+          import pymysql
+
+          connection = pymysql.connect(
+              host="127.0.0.1",
+              port=3306,
+              user="root",
+              password="ci-root-password",
+              database="papermind_migration_ci",
+          )
+
+          try:
+              with connection.cursor() as cursor:
+                  cursor.execute(
+                      "SELECT version_num FROM alembic_version"
+                  )
+                  versions = [
+                      row[0] for row in cursor.fetchall()
+                  ]
+
+                  assert len(versions) == 1, (
+                      f"Expected one migration version, got {versions}"
+                  )
+
+                  cursor.execute("SHOW TABLES")
+                  tables = {
+                      row[0] for row in cursor.fetchall()
+                  }
+
+                  expected = {
+                      "alembic_version",
+                      "users",
+                      "papers",
+                      "chat_messages",
+                      "message_sources",
+                  }
+
+                  missing = expected - tables
+
+                  assert not missing, (
+                      f"Missing database tables: {sorted(missing)}"
+                  )
+
+                  print("Migration version:", versions[0])
+                  print("Verified tables:", ", ".join(sorted(expected)))
+                  print("Alembic migration validation passed.")
+          finally:
+              connection.close()
+          PY
+
       - name: Run backend tests
         working-directory: backend
         run: python -m pytest -q
